@@ -1,294 +1,199 @@
-# SendGrid MCP Server
+# SendGrid Minimal MCP
 
 <img src="assets/sendgrid-logo.png" width="256" height="256" alt="SendGrid Logo" />
 
-A Model Context Protocol (MCP) server that provides access to SendGrid's Marketing API for email marketing and contact management. https://docs.sendgrid.com/api-reference/how-to-use-the-sendgrid-v3-api
+A lean Model Context Protocol (MCP) server that exposes read-only SendGrid tools for email analytics and suppression checks. Designed for querying email statistics, activity, and suppression status.
 
-## Demo
+## Features
 
-In this demo, we ask the Cline SendGrid agent to make a new contact list, add my emails to it, automatically generate a template for Lost Cities facts, and send the email to the list. In this process, Cline will automatically realize that it needs to know the verified senders we have, and which unsubscribe group to use. A pretty email is delivered to my inboxes, delighting me with Lost Cities!
+- 📊 **Email Statistics** - Query email metrics for date ranges
+- 📧 **Email Activity** - Look up email events for specific recipients
+- 🚫 **Supression Status** - Check if email addresses are suppressed due to bounces or blocks
+- 🔒 **Read-Only** - No sending, marketing, or contact management features
+- 🎯 **Focused** - Minimal codebase focused on analytics use cases
 
-<img src="assets/1.png" width="760" alt="SendGrid MCP Demo 1" />
-<img src="assets/2.png" width="760" alt="SendGrid MCP Demo 2" />
-<img src="assets/3.png" width="760" alt="SendGrid MCP Demo 3" />
-<img src="assets/4.png" width="760" alt="SendGrid MCP Demo 4" />
-<img src="assets/5.png" width="760" alt="SendGrid MCP Demo 5" />
-<img src="assets/6.png" width="760" alt="SendGrid MCP Demo 6" />
-<img src="assets/7.png" width="760" alt="SendGrid MCP Demo 7" />
-<img src="assets/8.png" width="760" alt="SendGrid MCP Demo 8" />
-<img src="assets/9.png" width="760" alt="SendGrid MCP Demo 9" />
+## Prerequisites
 
-## Important Note on API Support
-
-This server exclusively supports SendGrid's v3 APIs and does not provide support for legacy functionality. This includes:
-
-- Dynamic templates only - legacy templates are not supported
-- Marketing API v3 for all contact & contact list operations
-- Single Sends API for bulk email sending
-
-## Available Tools
-
-### Contact Management
-
-#### list_contacts
-Lists all contacts in your SendGrid account.
-```typescript
-// No parameters required
-```
-
-#### add_contact
-Add a contact to your SendGrid marketing contacts.
-```typescript
-{
-  email: string;           // Required: Contact email address
-  first_name?: string;     // Optional: Contact first name
-  last_name?: string;      // Optional: Contact last name
-  custom_fields?: object;  // Optional: Custom field values
-}
-```
-
-#### delete_contacts
-Delete contacts from your SendGrid account.
-```typescript
-{
-  emails: string[];  // Required: Array of email addresses to delete
-}
-```
-
-#### get_contacts_by_list
-Get all contacts in a SendGrid list.
-```typescript
-{
-  list_id: string;  // Required: ID of the contact list
-}
-```
-
-### List Management
-
-#### list_contact_lists
-List all contact lists in your SendGrid account.
-```typescript
-// No parameters required
-```
-
-#### create_contact_list
-Create a new contact list in SendGrid.
-```typescript
-{
-  name: string;  // Required: Name of the contact list
-}
-```
-
-#### delete_list
-Delete a contact list from SendGrid.
-```typescript
-{
-  list_id: string;  // Required: ID of the contact list to delete
-}
-```
-
-#### add_contacts_to_list
-Add contacts to an existing SendGrid list.
-```typescript
-{
-  list_id: string;    // Required: ID of the contact list
-  emails: string[];   // Required: Array of email addresses to add
-}
-```
-
-#### remove_contacts_from_list
-Remove contacts from a SendGrid list without deleting them.
-```typescript
-{
-  list_id: string;    // Required: ID of the contact list
-  emails: string[];   // Required: Array of email addresses to remove
-}
-```
-
-### Email Sending
-
-#### send_email
-Send an email using SendGrid.
-```typescript
-{
-  to: string;                             // Required: Recipient email address
-  subject: string;                        // Required: Email subject line
-  text: string;                          // Required: Plain text content
-  from: string;                          // Required: Verified sender email address
-  html?: string;                         // Optional: HTML content
-  template_id?: string;                  // Optional: Dynamic template ID
-  dynamic_template_data?: object;        // Optional: Template variables
-}
-```
-
-#### send_to_list
-Send an email to a contact list using SendGrid Single Sends.
-```typescript
-{
-  name: string;                          // Required: Name of the single send
-  list_ids: string[];                    // Required: Array of list IDs to send to
-  subject: string;                       // Required: Email subject line
-  html_content: string;                  // Required: HTML content
-  plain_content: string;                 // Required: Plain text content
-  sender_id: number;                     // Required: ID of the verified sender
-  suppression_group_id?: number;         // Required if custom_unsubscribe_url not provided
-  custom_unsubscribe_url?: string;       // Required if suppression_group_id not provided
-}
-```
-
-### Template Management (Dynamic Templates Only)
-
-#### create_template
-Create a new dynamic email template.
-```typescript
-{
-  name: string;           // Required: Name of the template
-  subject: string;        // Required: Default subject line
-  html_content: string;   // Required: HTML content with handlebars syntax
-  plain_content: string;  // Required: Plain text content with handlebars syntax
-}
-```
-
-#### list_templates
-List all dynamic email templates.
-```typescript
-// No parameters required
-```
-
-#### get_template
-Retrieve a template by ID.
-```typescript
-{
-  template_id: string;  // Required: ID of the template to retrieve
-}
-```
-
-#### delete_template
-Delete a dynamic template.
-```typescript
-{
-  template_id: string;  // Required: ID of the template to delete
-}
-```
-
-### Analytics and Validation
-
-#### get_stats
-Get SendGrid email statistics.
-```typescript
-{
-  start_date: string;                          // Required: Start date (YYYY-MM-DD)
-  end_date?: string;                           // Optional: End date (YYYY-MM-DD)
-  aggregated_by?: 'day' | 'week' | 'month';    // Optional: Aggregation period
-}
-```
-
-#### validate_email
-Validate an email address using SendGrid.
-```typescript
-{
-  email: string;  // Required: Email address to validate
-}
-```
-
-### Account Management
-
-#### list_verified_senders
-List all verified sender identities.
-```typescript
-// No parameters required
-```
-
-#### list_suppression_groups
-List all unsubscribe groups.
-```typescript
-// No parameters required
-```
+- **Node.js 18+** - Required runtime
+- **SendGrid API Key** - With the following scopes:
+  - `Email Activity` (read) - For activity lookups
+  - `Stats` (read) - For statistics queries
+  - `Suppressions` (read) - For bounce/block status checks
 
 ## Installation
 
 ```bash
-git clone https://github.com/Garoth/sendgrid-mcp.git
+# Clone the repository
+git clone <repository-url>
 cd sendgrid-mcp
+
+# Install dependencies
 npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your SENDGRID_API_KEY
 ```
 
-## Configuration
+## Usage
 
-1. Get your SendGrid API key:
-   - Log in to your SendGrid account
-   - Go to Settings > API Keys
-   - Create a new API key with full access permissions
-   - Save the API key securely as it won't be shown again
+### Starting the Server
 
-2. Add it to your Cline MCP settings file inside VSCode's settings (ex. ~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json):
+```bash
+npm start
+```
 
+The server runs on stdio transport, suitable for MCP client integration.
+
+### Development
+
+```bash
+# Watch mode for development
+npm run watch
+
+# Build TypeScript
+npm run build
+
+# Run tests
+npm test
+
+# Test with MCP Inspector
+npm run inspector
+```
+
+## Available Tools
+
+### `get_stats`
+
+Retrieves SendGrid email statistics for a given date range.
+
+**Parameters:**
+- `start_date` (required) - Start date in `YYYY-MM-DD` format
+- `end_date` (optional) - End date in `YYYY-MM-DD` format
+- `aggregated_by` (optional) - Aggregation level: `day`, `week`, or `month`
+
+**Example:**
 ```json
 {
-  "mcpServers": {
-    "sendgrid": {
-      "command": "node",
-      "args": ["/path/to/sendgrid-mcp/build/index.js"],
-      "env": {
-        "SENDGRID_API_KEY": "your-api-key-here"
-      },
-      "disabled": false,
-      "autoApprove": [
-        "list_contacts",
-        "list_contact_lists",
-        "list_templates",
-        "list_single_sends",
-        "get_single_send",
-        "list_verified_senders",
-        "list_suppression_groups",
-        "get_stats",
-        "validate_email"
-      ]
-    }
-  }
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "aggregated_by": "day"
 }
 ```
 
-Note: Tools that modify data (like sending emails or deleting contacts) are intentionally excluded from autoApprove for safety.
+**Returns:** Array of date-aggregated statistics with metrics including opens, clicks, bounces, spam reports, deliveries, and more.
 
-## Development
+---
 
-### Setting Up Tests
+### `get_email_activity`
 
-The tests use real API calls to ensure accurate responses. To run the tests:
+Fetches recent email activity for a specific recipient, optionally filtered by subject.
 
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
+**Parameters:**
+- `recipient` (required) - Email address to query
+- `subject` (optional) - Subject line filter
 
-2. Edit `.env` and add your SendGrid API key:
-   ```
-   SENDGRID_API_KEY=your-api-key-here
-   ```
-   Note: The `.env` file is gitignored to prevent committing sensitive information.
-
-3. Run the tests:
-   ```bash
-   npm test
-   ```
-
-### Building
-
-```bash
-npm run build
+**Example:**
+```json
+{
+  "recipient": "user@example.com",
+  "subject": "Welcome Email"
+}
 ```
 
-## Important Notes
+**Returns:** Array of email activity summaries with message ID, recipient, subject, status, and last event time.
 
-- When sending emails to lists, you must provide either a suppression_group_id or custom_unsubscribe_url to comply with email regulations
-- Sender email addresses must be verified with SendGrid before they can be used to send emails
-- All templates are created as dynamic templates with support for handlebars syntax (e.g., {{variable_name}})
-- The Single Sends API is used for all bulk email operations as it provides better tracking and management capabilities
-- The SendGrid API is "eventually consistent" - data changes (like adding contacts or updating lists) may not appear immediately after being made
+---
 
-## License
+### `get_suppression_status`
 
-MIT
+Checks if an email address is currently suppressed due to bounces or blocks. Checks both suppression types and returns the most relevant information.
 
-SendGrid logo copyright / owned by Twilio
+**Parameters:**
+- `email` (required) - Email address to check
+
+**Example:**
+```json
+{
+  "email": "bounced@example.com"
+}
+```
+
+**Returns:** Suppression status object with:
+- `suppressed` - Boolean indicating if email is suppressed
+- `type` - `"bounce"` or `"block"` or `null`
+- `reason` - Suppression reason message (if available)
+- `status` - Status code (if available)
+- `created` - ISO timestamp when suppression occurred
+- `created_timestamp` - Unix timestamp
+- `note` - Additional information if details are incomplete
+
+## Project Structure
+
+```
+src/
+├── index.ts                    # Main MCP server entry point
+├── services/
+│   └── sendgrid.ts            # SendGrid API client service
+├── tools/
+│   ├── index.ts               # Tool definitions and routing
+│   ├── stats.ts               # Email statistics handler
+│   ├── emailActivity.ts       # Email activity lookup handler
+│   └── suppressionStatus.ts   # Suppression status handler
+├── types/
+│   └── index.ts               # TypeScript type definitions
+└── utils/
+    └── errors.ts              # Error handling utilities
+```
+
+## Architecture
+
+The project follows a clean separation of concerns:
+
+- **Services** - API client layer for SendGrid interactions
+- **Tools** - MCP tool definitions and request handlers
+- **Activity** - Business logic for specific operations
+- **Types** - Shared TypeScript interfaces
+- **Utils** - Reusable utility functions
+
+All tools are read-only and use the SendGrid v3 REST API.
+
+## Testing
+
+The test suite includes:
+
+- **Unit Tests** - Mocked SendGrid client for fast, isolated tests
+- **Integration Tests** - Real API calls (requires `SENDGRID_API_KEY`)
+
+```bash
+# Run all tests
+npm test
+
+# Integration tests are skipped automatically if API key is missing
+```
+
+## Error Handling
+
+The server provides consistent error handling:
+
+- SendGrid API errors are formatted with clear messages
+- Standard errors are wrapped in MCP error format
+- Unknown errors return a generic message
+
+All errors are logged to stderr for debugging.
+
+## Contributing
+
+Contributions welcome! Please ensure:
+
+- Code follows existing patterns and style
+- Tests are included and passing
+- TypeScript types are properly defined
+- Documentation is updated
+
+## Support
+
+For issues or questions:
+- Check SendGrid API documentation for endpoint details
+- Review MCP SDK documentation for protocol information
+- Open an issue for bugs or feature requests

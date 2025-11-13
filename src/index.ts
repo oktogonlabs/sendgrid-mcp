@@ -3,18 +3,17 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ErrorCode,
-  McpError,
-} from "@modelcontextprotocol/sdk/types.js";
-import { SendGridService } from "./services/sendgrid.js";
-import { getToolDefinitions, handleToolCall } from "./tools/index.js";
+} from '@modelcontextprotocol/sdk/types.js';
+import { SendGridService } from './services/sendgrid.js';
+import { getToolDefinitions, handleToolCall } from './tools/index.js';
+import { formatSendGridError } from './utils/errors.js';
 
-// Initialize SendGrid with API key from environment variable
+// Validate required environment variable
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 if (!SENDGRID_API_KEY) {
   throw new Error('SENDGRID_API_KEY environment variable is required');
@@ -23,10 +22,11 @@ if (!SENDGRID_API_KEY) {
 // Initialize the SendGrid service
 const sendGridService = new SendGridService(SENDGRID_API_KEY);
 
+// Initialize MCP server
 const server = new Server(
   {
-    name: "sendgrid-mcp-server",
-    version: "0.2.0",
+    name: 'sendgrid-minimal-mcp',
+    version: '1.0.0',
   },
   {
     capabilities: {
@@ -37,13 +37,10 @@ const server = new Server(
 
 /**
  * Handler that lists available tools.
- * Exposes all SendGrid API capabilities as tools.
  */
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: getToolDefinitions(sendGridService)
-  };
-});
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: getToolDefinitions(),
+}));
 
 /**
  * Handler for tool calls.
@@ -51,27 +48,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
  */
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
-    return await handleToolCall(sendGridService, request.params.name, request.params.arguments);
-  } catch (error: any) {
+    return await handleToolCall(
+      sendGridService,
+      request.params.name,
+      request.params.arguments
+    );
+  } catch (error: unknown) {
     console.error('SendGrid Error:', error);
-    
-    // Handle SendGrid API errors
-    if (error.response?.body?.errors) {
-      throw new McpError(
-        ErrorCode.InternalError,
-        `SendGrid API Error: ${error.response.body.errors.map((e: { message: string }) => e.message).join(', ')}`
-      );
-    }
-    
-    // Handle other errors
-    if (error instanceof Error) {
-      throw new McpError(
-        ErrorCode.InternalError,
-        error.message
-      );
-    }
-    
-    throw new McpError(ErrorCode.InternalError, 'An unexpected error occurred');
+    throw formatSendGridError(error);
   }
 });
 
@@ -81,10 +65,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('SendGrid MCP server running on stdio');
+  console.error('SendGrid Minimal MCP server running on stdio');
 }
 
 main().catch((error) => {
-  console.error("Server error:", error);
+  console.error('Server error:', error);
   process.exit(1);
 });
+

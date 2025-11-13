@@ -1,9 +1,20 @@
 import { Client } from '@sendgrid/client';
 import sgMail from '@sendgrid/mail';
-import { SendGridContact, SendGridList, SendGridTemplate, SendGridStats, SendGridSingleSend } from '../types/index.js';
+import type {
+  SendGridBounce,
+  SendGridBlock,
+  SendGridEmailActivityResponse,
+  SendGridStats,
+} from '../types/index.js';
 
+type ClientRequestOptions = Parameters<Client['request']>[0];
+
+/**
+ * Service for interacting with the SendGrid API.
+ * Provides operations for sending emails, querying email statistics, activity, and suppression checks.
+ */
 export class SendGridService {
-  private client: Client;
+  private readonly client: Client;
 
   constructor(apiKey: string) {
     this.client = new Client();
@@ -11,7 +22,27 @@ export class SendGridService {
     sgMail.setApiKey(apiKey);
   }
 
-  // Email Sending
+  /**
+   * Generic request wrapper that extracts the response body.
+   */
+  private async request<T>(options: ClientRequestOptions): Promise<T> {
+    const [response] = await this.client.request(options);
+    return response.body as T;
+  }
+
+  /**
+   * Sends an email using SendGrid.
+   *
+   * @param params - Email parameters
+   * @param params.to - Recipient email address
+   * @param params.from - Sender email address (must be verified with SendGrid)
+   * @param params.subject - Email subject line
+   * @param params.text - Plain text content of the email
+   * @param params.html - Optional HTML content of the email
+   * @param params.template_id - Optional SendGrid template ID
+   * @param params.dynamic_template_data - Optional dynamic data for template variables
+   * @returns Promise resolving to SendGrid mail API response
+   */
   async sendEmail(params: {
     to: string;
     from: string;
@@ -19,301 +50,118 @@ export class SendGridService {
     text: string;
     html?: string;
     template_id?: string;
-    dynamic_template_data?: Record<string, any>;
-  }) {
+    dynamic_template_data?: Record<string, unknown>;
+  }): Promise<unknown> {
     return await sgMail.send(params);
   }
 
-  // Contact Management
-  async deleteContactsByEmails(emails: string[]): Promise<void> {
-    // First get the contact IDs for the emails
-    const [searchResponse] = await this.client.request({
-      method: 'POST',
-      url: '/v3/marketing/contacts/search',
-      body: {
-        query: `email IN (${emails.map(email => `'${email}'`).join(',')})`
-      }
-    });
-    
-    const contacts = (searchResponse.body as { result: SendGridContact[] }).result || [];
-    const contactIds = contacts.map(contact => contact.id).filter(id => id) as string[];
-
-    if (contactIds.length > 0) {
-      // Then delete the contacts by their IDs
-      await this.client.request({
-        method: 'DELETE',
-        url: '/v3/marketing/contacts',
-        qs: {
-          ids: contactIds.join(',')
-        }
-      });
-    }
-  }
-
-  async listAllContacts(): Promise<SendGridContact[]> {
-    const [response] = await this.client.request({
-      method: 'POST',
-      url: '/v3/marketing/contacts/search',
-      body: {
-        query: "email IS NOT NULL" // Get all contacts that have an email
-      }
-    });
-    return (response.body as { result: SendGridContact[] }).result || [];
-  }
-
-  async addContact(contact: SendGridContact) {
-    const [response] = await this.client.request({
-      method: 'PUT',
-      url: '/v3/marketing/contacts',
-      body: {
-        contacts: [contact]
-      }
-    });
-    return response;
-  }
-
-  async getContactsByList(listId: string): Promise<SendGridContact[]> {
-    const [response] = await this.client.request({
-      method: 'POST',
-      url: '/v3/marketing/contacts/search',
-      body: {
-        query: `CONTAINS(list_ids, '${listId}')`
-      }
-    });
-    return (response.body as { result: SendGridContact[] }).result || [];
-  }
-
-  async getList(listId: string): Promise<SendGridList> {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: `/v3/marketing/lists/${listId}`
-    });
-    return response.body as SendGridList;
-  }
-
-  async listContactLists(): Promise<SendGridList[]> {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: '/v3/marketing/lists'
-    });
-    return (response.body as { result: SendGridList[] }).result;
-  }
-
-  async deleteList(listId: string): Promise<void> {
-    await this.client.request({
-      method: 'DELETE',
-      url: `/v3/marketing/lists/${listId}`
-    });
-  }
-
-  async createList(name: string): Promise<SendGridList> {
-    const [response] = await this.client.request({
-      method: 'POST',
-      url: '/v3/marketing/lists',
-      body: { name }
-    });
-    return response.body as SendGridList;
-  }
-
-  async addContactsToList(listId: string, contactEmails: string[]) {
-    const [response] = await this.client.request({
-      method: 'PUT',
-      url: '/v3/marketing/contacts',
-      body: {
-        list_ids: [listId],
-        contacts: contactEmails.map(email => ({ email }))
-      }
-    });
-    return response;
-  }
-
-  async removeContactsFromList(listId: string, contactEmails: string[]) {
-    // First get the contact IDs for the emails
-    const [searchResponse] = await this.client.request({
-      method: 'POST',
-      url: '/v3/marketing/contacts/search',
-      body: {
-        query: `email IN (${contactEmails.map(email => `'${email}'`).join(',')}) AND CONTAINS(list_ids, '${listId}')`
-      }
-    });
-    
-    const contacts = (searchResponse.body as { result: SendGridContact[] }).result || [];
-    const contactIds = contacts.map(contact => contact.id).filter(id => id) as string[];
-
-    if (contactIds.length > 0) {
-      // Remove the contacts from the list
-      await this.client.request({
-        method: 'DELETE',
-        url: `/v3/marketing/lists/${listId}/contacts`,
-        qs: {
-          contact_ids: contactIds.join(',')
-        }
-      });
-    }
-  }
-
-  // Template Management
-  async createTemplate(params: {
-    name: string;
-    html_content: string;
-    plain_content: string;
-    subject: string;
-  }): Promise<SendGridTemplate> {
-    const [response] = await this.client.request({
-      method: 'POST',
-      url: '/v3/templates',
-      body: {
-        name: params.name,
-        generation: 'dynamic'
-      }
-    });
-
-    const templateId = (response.body as { id: string }).id;
-    
-    // Create the first version of the template
-    const [versionResponse] = await this.client.request({
-      method: 'POST',
-      url: `/v3/templates/${templateId}/versions`,
-      body: {
-        template_id: templateId,
-        name: `${params.name} v1`,
-        subject: params.subject,
-        html_content: params.html_content,
-        plain_content: params.plain_content,
-        active: 1
-      }
-    });
-
-    return {
-      id: templateId,
-      name: params.name,
-      generation: 'dynamic',
-      updated_at: new Date().toISOString(),
-      versions: [{
-        id: (versionResponse.body as { id: string }).id,
-        template_id: templateId,
-        active: 1,
-        name: `${params.name} v1`,
-        html_content: params.html_content,
-        plain_content: params.plain_content,
-        subject: params.subject
-      }]
-    };
-  }
-
-  async listTemplates(): Promise<SendGridTemplate[]> {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: '/v3/templates',
-      qs: {
-        generations: 'dynamic'
-      }
-    });
-    return ((response.body as { templates: SendGridTemplate[] }).templates || []);
-  }
-
-  async getTemplate(templateId: string): Promise<SendGridTemplate> {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: `/v3/templates/${templateId}`
-    });
-    return response.body as SendGridTemplate;
-  }
-
-  async deleteTemplate(templateId: string): Promise<void> {
-    await this.client.request({
-      method: 'DELETE',
-      url: `/v3/templates/${templateId}`
-    });
-  }
-
-  // Email Validation
-  async validateEmail(email: string) {
-    const [response] = await this.client.request({
-      method: 'POST',
-      url: '/v3/validations/email',
-      body: { email }
-    });
-    return response.body;
-  }
-
-  // Statistics
+  /**
+   * Retrieves email statistics for a given date range.
+   *
+   * @param params - Statistics query parameters
+   * @param params.start_date - Start date in YYYY-MM-DD format
+   * @param params.end_date - Optional end date in YYYY-MM-DD format
+   * @param params.aggregated_by - Optional aggregation level (day, week, month)
+   * @returns Promise resolving to SendGrid statistics
+   */
   async getStats(params: {
     start_date: string;
     end_date?: string;
     aggregated_by?: 'day' | 'week' | 'month';
   }): Promise<SendGridStats> {
-    const [response] = await this.client.request({
+    return this.request<SendGridStats>({
       method: 'GET',
       url: '/v3/stats',
-      qs: params
+      qs: params,
     });
-    return response.body as SendGridStats;
   }
 
-  // Single Sends (New Marketing Campaigns API)
-  async createSingleSend(params: {
-    name: string;
-    send_to: { list_ids: string[] };
-    email_config: {
-      subject: string;
-      html_content: string;
-      plain_content: string;
-      sender_id: number;
-      suppression_group_id?: number;
-      custom_unsubscribe_url?: string;
-    };
-  }): Promise<{ id: string }> {
-    const [response] = await this.client.request({
-      method: 'POST',
-      url: '/v3/marketing/singlesends',
-      body: params
+  /**
+   * Retrieves email activity using a query string.
+   *
+   * @param query - SendGrid query string (e.g., 'to_email="user@example.com"')
+   * @returns Promise resolving to email activity response
+   */
+  async getEmailActivity(query: string): Promise<SendGridEmailActivityResponse> {
+    return this.request<SendGridEmailActivityResponse>({
+      method: 'GET',
+      url: '/v3/messages',
+      qs: { query },
     });
-    return response.body as { id: string };
   }
 
-  async scheduleSingleSend(singleSendId: string, sendAt: 'now' | string) {
-    const [response] = await this.client.request({
-      method: 'PUT',
-      url: `/v3/marketing/singlesends/${singleSendId}/schedule`,
-      body: {
-        send_at: sendAt
+  /**
+   * Retrieves bounce suppression information for an email address.
+   *
+   * @param email - Email address to check
+   * @returns Promise resolving to bounce record or null if not suppressed
+   */
+  async getBounce(email: string): Promise<SendGridBounce | null> {
+    return this.getSuppression<SendGridBounce>(
+      email,
+      '/v3/suppression/bounces'
+    );
+  }
+
+  /**
+   * Retrieves block suppression information for an email address.
+   *
+   * @param email - Email address to check
+   * @returns Promise resolving to block record or null if not suppressed
+   */
+  async getBlock(email: string): Promise<SendGridBlock | null> {
+    return this.getSuppression<SendGridBlock>(
+      email,
+      '/v3/suppression/blocks'
+    );
+  }
+
+  /**
+   * Generic method to retrieve suppression data (bounces or blocks).
+   * Handles various response formats from SendGrid API:
+   * - Empty array [] = suppressed but no detailed record
+   * - Non-empty array = suppression record with full details
+   * - Object = suppression record
+   *
+   * @param email - Email address to check
+   * @param baseUrl - Base URL for the suppression endpoint
+   * @returns Promise resolving to suppression record or null if not suppressed
+   */
+  private async getSuppression<T extends { email?: string }>(
+    email: string,
+    baseUrl: string
+  ): Promise<T | null> {
+    try {
+      const [response] = await this.client.request({
+        method: 'GET',
+        url: `${baseUrl}/${encodeURIComponent(email)}`,
+      });
+
+      const body = response.body;
+
+      // Handle array response
+      if (Array.isArray(body)) {
+        if (body.length === 0) {
+          // Empty array = suppressed but no detailed record
+          return { email } as T;
+        }
+        // Non-empty array = first element contains the suppression record
+        return body[0] as T;
       }
-    });
-    return response.body;
-  }
 
-  async getSingleSend(singleSendId: string): Promise<SendGridSingleSend> {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: `/v3/marketing/singlesends/${singleSendId}`
-    });
-    return response.body as SendGridSingleSend;
-  }
+      // Handle object response (normal case)
+      if (body && typeof body === 'object') {
+        return body as T;
+      }
 
-  async listSingleSends(): Promise<SendGridSingleSend[]> {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: '/v3/marketing/singlesends'
-    });
-    return (response.body as { result: SendGridSingleSend[] }).result || [];
-  }
-
-  // Suppression Groups
-  async getSuppressionGroups() {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: '/v3/asm/groups'
-    });
-    return response.body;
-  }
-
-  // Verified Senders
-  async getVerifiedSenders() {
-    const [response] = await this.client.request({
-      method: 'GET',
-      url: '/v3/verified_senders'
-    });
-    return response.body;
+      // Unexpected response format
+      return null;
+    } catch (error: unknown) {
+      const apiError = error as { response?: { statusCode?: number } };
+      if (apiError.response?.statusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 }

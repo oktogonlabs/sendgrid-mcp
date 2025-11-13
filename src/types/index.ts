@@ -1,37 +1,12 @@
-// Common interfaces for SendGrid API responses and requests
+/**
+ * Type definitions for SendGrid API responses used by this MCP server.
+ * All types represent read-only data from the SendGrid v3 REST API.
+ */
 
-export interface SendGridContact {
-  id?: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  custom_fields?: Record<string, any>;
-}
-
-export interface SendGridList {
-  id: string;
-  name: string;
-  contact_count: number;
-}
-
-export interface SendGridTemplate {
-  id: string;
-  name: string;
-  generation: string;
-  updated_at: string;
-  versions: SendGridTemplateVersion[];
-}
-
-export interface SendGridTemplateVersion {
-  id: string;
-  template_id: string;
-  active: number;
-  name: string;
-  html_content: string;
-  plain_content: string;
-  subject: string;
-}
-
+/**
+ * SendGrid statistics response structure.
+ * Contains email metrics aggregated by date.
+ */
 export interface SendGridStats extends Array<{
   date: string;
   stats: Array<{
@@ -56,21 +31,42 @@ export interface SendGridStats extends Array<{
   }>;
 }> {}
 
-export interface SendGridSingleSend {
-  id: string;
-  name: string;
-  status: 'draft' | 'scheduled' | 'triggered' | 'canceled';
-  categories?: string[];
-  send_at?: string;
-  send_to: {
-    list_ids: string[];
-  };
-  email_config: {
-    subject: string;
-    html_content: string;
-    plain_content: string;
-    sender_id: number;
-    suppression_group_id?: number;
-    custom_unsubscribe_url?: string;
-  };
+/**
+ * Individual email activity message from SendGrid.
+ */
+export interface SendGridEmailActivityMessage {
+  msg_id?: string;
+  to_email?: string;
+  subject?: string;
+  status?: string;
+  last_event_time?: string;
+}
+
+/**
+ * SendGrid email activity API response.
+ */
+export interface SendGridEmailActivityResponse {
+  messages: SendGridEmailActivityMessage[];
+}
+
+/**
+ * SendGrid bounce suppression record.
+ * Represents an email address that has bounced and been suppressed.
+ */
+export interface SendGridBounce {
+  email?: string;
+  created?: number; // Unix timestamp
+  reason?: string; // Bounce reason message
+  status?: string; // Bounce status code
+}
+
+/**
+ * SendGrid block suppression record.
+ * Represents an email address that has been blocked and suppressed.
+ */
+export interface SendGridBlock {
+  email?: string;
+  created?: number; // Unix timestamp
+  reason?: string; // Block reason message
+  status?: string; // Block status code
 }

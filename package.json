@@ -1,16 +1,17 @@
 {
-  "name": "sendgrid-mcp",
+  "name": "sendgrid-minimal-mcp",
   "version": "1.0.0",
-  "description": "Send emails and interact with SendGrid",
+  "description": "Minimal read-only SendGrid MCP toolkit",
   "private": true,
   "type": "module",
   "bin": {
-    "sendgrid-mcp": "./build/index.js"
+    "sendgrid-minimal-mcp": "./build/index.js"
   },
   "files": [
     "build"
   ],
   "scripts": {
+    "start": "npm run build && node build/index.js",
     "build": "tsc && chmod +x build/index.js",
     "prepare": "npm run build",
     "watch": "tsc --watch",
@@ -20,13 +21,12 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
     "@sendgrid/client": "^8.1.4",
-    "@sendgrid/helpers": "^8.0.0",
-    "@sendgrid/mail": "^8.1.4"
+    "@sendgrid/mail": "^8.1.6",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.24",
-    "dotenv": "^16.4.7",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "typescript": "^5.3.3"

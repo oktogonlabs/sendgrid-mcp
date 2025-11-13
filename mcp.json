@@ -1,0 +1,3 @@
+{
+  "tools": ["send_email", "get_stats", "get_email_activity", "get_suppression_status"],
+}
