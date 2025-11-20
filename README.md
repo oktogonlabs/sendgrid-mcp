@@ -61,6 +61,107 @@ npm test
 npm run inspector
 ```
 
+## Docker
+
+### Multi-Architecture Support
+
+This project builds Docker images that support multiple architectures:
+- `linux/amd64` - For most cloud servers and x86_64 systems
+- `linux/arm64` - For Apple Silicon (M1/M2/M3) and ARM-based servers
+
+### Using the Pre-built Image
+
+The Docker image is automatically built and published to Docker Hub for both architectures:
+
+```bash
+# Pull the latest multi-arch image
+docker pull joaomiguelinacio/sendgrid-mcp:latest
+
+# Run the container
+docker run -it --rm \
+  -e SENDGRID_API_KEY=your-api-key \
+  joaomiguelinacio/sendgrid-mcp:latest
+```
+
+The image will automatically match your system's architecture.
+
+### Building Multi-Architecture Images Locally
+
+#### Using the Build Script (Recommended)
+
+A convenience script is provided for building multi-architecture images:
+
+```bash
+# Build for local platform only (quick test)
+./build-docker.sh
+
+# Build and push multi-arch image
+PUSH=true ./build-docker.sh
+
+# Custom image name and tag
+IMAGE_NAME=my-registry/sendgrid-mcp TAG=v1.0.0 PUSH=true ./build-docker.sh
+```
+
+#### Manual Build with Docker Buildx
+
+To build a multi-architecture image manually using Docker Buildx:
+
+```bash
+# Create and use a buildx builder (if not already created)
+docker buildx create --name multiarch-builder --use
+docker buildx inspect --bootstrap
+
+# Build for multiple architectures and push
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --tag joaomiguelinacio/sendgrid-mcp:latest \
+  --push \
+  .
+
+# Or build and load for local architecture only
+docker buildx build \
+  --platform linux/amd64 \
+  --load \
+  --tag joaomiguelinacio/sendgrid-mcp:latest \
+  .
+```
+
+### Building Single-Architecture Images
+
+For a quick single-architecture build (your local platform):
+
+```bash
+# Standard build (single architecture)
+docker build -t joaomiguelinacio/sendgrid-mcp:latest .
+
+# Run the container
+docker run -it --rm \
+  -e SENDGRID_API_KEY=your-api-key \
+  joaomiguelinacio/sendgrid-mcp:latest
+```
+
+### Automated Builds
+
+The project uses GitHub Actions to automatically build and push multi-architecture images on:
+- Pushes to the `main` branch
+- Version tags (e.g., `v1.0.0`)
+- Manual workflow triggers
+
+The CI/CD pipeline uses Docker Buildx to create manifest lists that include both architectures.
+
+#### Setting up GitHub Actions
+
+To enable automated builds, configure the following secrets in your GitHub repository:
+
+1. Go to **Settings** → **Secrets and variables** → **Actions**
+2. Add the following repository secrets:
+   - `DOCKER_USERNAME`: Your Docker Hub username (e.g., `joaomiguelinacio`)
+   - `DOCKER_PASSWORD`: Your Docker Hub password or access token
+
+**Note:** For better security, use a Docker Hub [Access Token](https://docs.docker.com/docker-hub/access-tokens/) instead of your password.
+
+Once configured, the workflow will automatically build and push multi-architecture images on every push to `main` or when you create a version tag.
+
 ## Available Tools
 
 ### `get_stats`

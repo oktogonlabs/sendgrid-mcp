@@ -1,3 +1,5 @@
+# Multi-architecture Dockerfile
+# Supports: linux/amd64 and linux/arm64
 # Stage 1: Build the application
 FROM node:18-alpine AS builder
 
